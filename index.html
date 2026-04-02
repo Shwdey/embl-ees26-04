@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>EMBL Biological Oscillator Network</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body { margin:0; background:#0f172a; font-family: 'Inter', system-ui, sans-serif; overflow: hidden; color: #f8fafc; }
+        svg { width:100vw; height:100vh; }
+        
+        /* Glassmorphism Tooltip */
+        .tooltip {
+            position: absolute;
+            background: rgba(30, 41, 59, 0.9);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            pointer-events: none;
+            opacity: 0;
+            max-width: 320px;
+            transition: opacity 0.3s;
+            z-index: 100;
+        }
+        .tooltip b { color: #38bdf8; display: block; font-size: 1.1em; margin-bottom: 4px; }
+        .tooltip i { font-size: 0.85em; color: #94a3b8; display: block; margin-bottom: 8px; }
+        .tooltip p { font-size: 0.9em; margin: 0; line-height: 1.4; color: #e2e8f0; }
+
+        #header {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+        }
+        h1 { font-weight: 300; font-size: 1.2rem; letter-spacing: 2px; text-transform: uppercase; color: #38bdf8; margin: 0; }
+    </style>
+</head>
+<body>
+
+<div id="header">
+    <h1>Chronos Dynamics</h1>
+    <div style="font-size: 0.8rem; color: #64748b;">Interactive Conference Architecture</div>
+</div>
+
+<div id="tooltip" class="tooltip"></div>
+<svg></svg>
+
+<script>
+// Data Architecture derived from EMBL Schedule 
+const data = {
+  id: "EMBL Biological Oscillator Conference Highlights",
+  type: "root",
+  children: [
+    {
+      id: "Day 1", type: "day", children: [
+        { id: "Session 1", type: "session", children: [
+          { id: "Audrey Mat", title: "Biological rhythms and clocks in the deep sea", institute: "University of Vienna" },
+          { id: "Theo Geisel", title: "Human synchronization in musical interactions", institute: "MPI for Dynamics" },
+          { id: "François Schweisguth", title: "Oscillatory Hedgehog signaling", institute: "Institut Pasteur" },
+          { id: "Hanspeter Herzel", title: "Biological rhythms through oscillator theory", institute: "Humboldt University" },
+          { id: "Marta del Olmo", title: "Exploring oscillators with Python", institute: "Nature Communications" }
+        ]}
+      ]
+    },
+    {
+      id: "Day 2", type: "day", children: [
+        { id: "Session 2", type: "session", children: [
+          { id: "Ina Sonnen", title: "How biological rhythms organise cell types", institute: "Hubrecht Institute" },
+          { id: "Andrew Goryachev", title: "Beating heart of cytoskeletal oscillator", institute: "University of Edinburgh" },
+          { id: "Sapna Chhabra", title: "Thermal robustness of segmentation", institute: "EMBL Heidelberg" },
+          { id: "Shaon Chakrabarti", title: "Circadian phase decoding", institute: "NCBS India" },
+          { id: "Michał Bogdziewicz", title: "General flowering in temperate forests", institute: "Adam Mickiewicz University" },
+          { id: "Smitha Maretvadakethope", title: "Criticality zoo of AC-DC circuit", institute: "Imperial College London" },
+          { id: "Mor Nitzan", title: "Revealing oscillatory processes", institute: "Hebrew University" }
+        ]},
+        { id: "Session 3", type: "session", children: [
+          { id: "Orit Peleg", title: "Firefly flash oscillators", institute: "University of Colorado" },
+          { id: "Haneul Yoo", title: "Oscillatory RNA Polymerase II", institute: "MPI Immunobiology" },
+          { id: "Anzy Miller", title: "NGN3 oscillatory expression", institute: "University of Manchester" },
+          { id: "Min Wu", title: "Oscillatory dynamics on cell surface", institute: "Yale University" },
+          { id: "Euan Mackay", title: "Actomyosin oscillations", institute: "University of Dundee" },
+          { id: "Ximena Soto", title: "Gene dynamics in regeneration", institute: "University of Manchester" }
+        ]},
+        { id: "Flash & Poster 1", type: "flash", children: [
+          { id: "Aida Coric" }, { id: "Purna Sham Gadre" }, { id: "Isabella Hajdu" }, { id: "Hanspeter Herzel" }, 
+          { id: "Simen Jacobs" }, { id: "Luiza Konkina" }, { id: "Hedda Meijer" }, { id: "Jooske Monster" }, 
+          { id: "Shweta Pandey" }, { id: "Chengzhe Tian" }, { id: "Lea Urpa" }, { id: "Samuel Zambrano" }
+        ]}
+      ]
+    },
+    {
+      id: "Day 3", type: "day", children: [
+        { id: "Session 4", type: "session", children: [
+          { id: "Vishwesha Guttal", title: "Stochasticity to synchrony", institute: "IISc India" },
+          { id: "Henrique Valim", title: "Circadian dysregulation in algae", institute: "Senckenberg Centre" },
+          { id: "Lendert Gelens", title: "Synchronizing embryonic cycles", institute: "KU Leuven" },
+          { id: "Federico Scaramuzza", title: "Clock Plasticity", institute: "University of Vienna" },
+          { id: "Flavio Fenton", title: "Heart oscillations to chaos", institute: "Georgia Tech" },
+          { id: "Coen P. Elemens", title: "Voice production dynamics", institute: "University of Southern Denmark" }
+        ]},
+        { id: "Flash & Poster 2", type: "flash", children: [
+          { id: "Anubhuti Anushree" }, { id: "Veronica Biga" }, { id: "Moti Fridman" }, { id: "Rosie Gallagher" }, 
+          { id: "Simon Knoblich" }, { id: "Arthur Marcusse" }, { id: "Hidenobu Miyazawa" }, { id: "Anjoom Nikhat" }, 
+          { id: "Sara Pozzi" }, { id: "Andrea Salati" }, { id: "Koichiro Uriu" }, { id: "Myah Verghese" }, { id: "Florence Woods" }
+        ]}
+      ]
+    },
+    {
+      id: "Day 4", type: "day", children: [
+        { id: "Session 5", type: "session", children: [
+          { id: "Kirsty Wan", title: "Coordinating active filaments", institute: "University of Exeter" },
+          { id: "Maria Teresa Portes", title: "Bioelectric oscillators in plants", institute: "University of Sao Paulo" },
+          { id: "Yves Paychère", title: "Periodic manifolds from scRNA-seq", institute: "EPFL" },
+          { id: "Arkarup Banerjee", title: "Intrinsic song rhythms", institute: "CSHL" },
+          { id: "Maria Tatulea-Codrean", title: "Hydrodynamic synchronisation", institute: "University of Amsterdam" },
+          { id: "Elad Shniderman", title: "Human network synchronization", institute: "Bar Ilan University" },
+          { id: "Lorenz Fenk", title: "Sleep rhythms in Pogona vitticeps", institute: "MPI Biological Intelligence" }
+        ]}
+      ]
+    }
+  ]
+};
+
+const width = window.innerWidth, height = window.innerHeight;
+const svg = d3.select("svg");
+const tooltip = d3.select("#tooltip");
+
+const root = d3.hierarchy(data);
+let nodes = root.descendants();
+let links = root.links();
+
+// Modern Color Palette
+const colorScale = (d) => {
+    if (d.data.type === "root") return "#38bdf8";
+    if (d.data.type === "day") return "#818cf8";
+    if (d.data.type === "session") return "#fb7185";
+    if (d.data.type === "flash") return "#fbbf24";
+    return "#34d399"; // Speakers
+};
+
+const simulation = d3.forceSimulation(nodes)
+    .force("link", d3.forceLink(links).id(d => d.data.id).distance(d => (5 - d.source.depth) * 40).strength(0.6))
+    .force("charge", d3.forceManyBody().strength(-400))
+    .force("center", d3.forceCenter(width / 2, height / 2))
+    .force("collision", d3.forceCollide().radius(d => 30 + (4-d.depth)*5))
+    .on("tick", ticked);
+
+let link = svg.append("g").selectAll("line");
+let node = svg.append("g").selectAll("g");
+
+function update() {
+    nodes = root.descendants();
+    links = root.links();
+
+    link = link.data(links, d => d.target.data.id);
+    link.exit().remove();
+    link = link.enter().append("line")
+        .attr("stroke", "rgba(255,255,255,0.1)")
+        .attr("stroke-width", 1.5)
+        .merge(link);
+
+    node = node.data(nodes, d => d.data.id);
+    node.exit().remove();
+    
+    const nodeEnter = node.enter().append("g")
+        .call(d3.drag()
+            .on("start", dragstarted)
+            .on("drag", dragged)
+            .on("end", dragended));
+
+    nodeEnter.append("circle")
+        .attr("r", d => (5 - d.depth) * 6)
+        .attr("fill", d => colorScale(d))
+        .attr("stroke", "#0f172a")
+        .attr("stroke-width", 2)
+        .style("cursor", "pointer")
+        .on("click", (event, d) => {
+            if (d.children) { d._children = d.children; d.children = null; }
+            else { d.children = d._children; d._children = null; }
+            update();
+        })
+        .on("mouseover", (event, d) => {
+            if(d.data.title || d.data.institute) {
+                tooltip.style("opacity", 1)
+                    .html(`<b>${d.data.id}</b><i>${d.data.institute || ''}</i><p>${d.data.title || ''}</p>`)
+                    .style("left", (event.pageX + 20) + "px")
+                    .style("top", (event.pageY - 20) + "px");
+            }
+        })
+        .on("mouseout", () => tooltip.style("opacity", 0));
+
+    nodeEnter.append("text")
+        .attr("dy", d => (5 - d.depth) * 10)
+        .attr("text-anchor", "middle")
+        .text(d => d.data.id)
+        .style("fill", "#94a3b8")
+        .style("font-size", d => d.depth < 2 ? "14px" : "10px")
+        .style("pointer-events", "none")
+        .style("font-weight", d => d.depth < 2 ? "600" : "400");
+
+    node = nodeEnter.merge(node);
+    
+    simulation.nodes(nodes);
+    simulation.force("link").links(links);
+    simulation.alpha(0.5).restart();
+}
+
+function ticked() {
+    link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+        .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+    node.attr("transform", d => `translate(${d.x},${d.y})`);
+}
+
+function dragstarted(event, d) {
+    if (!event.active) simulation.alphaTarget(0.3).restart();
+    d.fx = d.x; d.fy = d.y;
+}
+function dragged(event, d) { d.fx = event.x; d.fy = event.y; }
+function dragended(event, d) {
+    if (!event.active) simulation.alphaTarget(0);
+    d.fx = null; d.fy = null;
+}
+
+// Start with only days visible
+root.children.forEach(d => {
+    if(d.children) { d._children = d.children; d.children = null; }
+});
+update();
+
+</script>
+</body>
+</html>
