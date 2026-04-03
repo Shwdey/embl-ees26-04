@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>EMBL 2026: Network Biology Dashboard</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0f1e;
+            --panel: #111827;
+            --accent: #3b82f6;
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+            --border: #1f2937;
+        }
+
+        body { margin:0; background: var(--bg); font-family: 'Inter', sans-serif; color: var(--text-main); overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+        
+        /* Navigation & Filters */
+        #top-bar { 
+            background: var(--panel); padding: 15px 30px; display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid var(--border); z-index: 100; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .nav-group { display: flex; gap: 10px; }
+        .tab-btn { 
+            padding: 8px 16px; border: 1px solid var(--border); background: var(--bg); color: var(--text-dim); 
+            border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: 0.3s;
+        }
+        .tab-btn.active { background: var(--accent); color: white; border-color: var(--accent); box-shadow: 0 0 15px rgba(59, 130, 246, 0.4); }
+        
+        #filter-bar { background: #0f172a; padding: 10px 30px; display: flex; gap: 12px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+        .filter-chip { 
+            padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; cursor: pointer; 
+            border: 1px solid var(--border); white-space: nowrap; color: var(--text-dim); transition: 0.2s;
+        }
+        .filter-chip:hover { border-color: var(--accent); color: var(--text-main); }
+        .filter-chip.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+        /* Main Layout */
+        #container { display: flex; flex-grow: 1; overflow: hidden; }
+        #sidebar { width: 380px; background: var(--panel); border-right: 1px solid var(--border); padding: 30px; overflow-y: auto; display: flex; flex-direction: column; }
+        #viz { flex-grow: 1; position: relative; cursor: grab; }
+        #viz:active { cursor: grabbing; }
+
+        /* Content Styling */
+        h1 { font-size: 1.1rem; letter-spacing: 2px; text-transform: uppercase; margin: 0 0 5px 0; color: var(--accent); }
+        .sub-header { font-size: 0.75rem; font-family: 'JetBrains Mono'; color: var(--text-dim); margin-bottom: 25px; }
+        .module-card { background: var(--bg); border: 1px solid var(--border); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid var(--accent); }
+        .module-title { font-size: 0.8rem; font-weight: 800; color: var(--text-main); margin-bottom: 5px; text-transform: uppercase; }
+        .module-desc { font-size: 0.8rem; line-height: 1.5; color: var(--text-dim); }
+
+        /* Network SVG */
+        .node circle { stroke: var(--accent); stroke-width: 2px; transition: 0.2s; }
+        .node text { font-size: 10px; fill: var(--text-dim); pointer-events: none; }
+        .link { stroke: var(--border); stroke-opacity: 0.6; stroke-width: 1.5px; }
+        
+        .tooltip { 
+            position: absolute; background: #1e293b; border: 1px solid var(--accent); color: white; 
+            padding: 12px; border-radius: 8px; font-size: 0.75rem; pointer-events: none; opacity: 0; z-index: 1000;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+<div id="top-bar">
+    <div class="nav-group">
+        <button class="tab-btn active" onclick="switchMode('report')">The Interactome</button>
+        <button class="tab-btn" onclick="switchMode('timeline')">Temporal Archive</button>
+    </div>
+    <div style="font-size: 0.8rem; color: var(--text-dim); font-weight: 800;">EMBL EES 2026 • NETWORK ANALYSIS</div>
+</div>
+
+<div id="filter-bar">
+    <div class="filter-chip active" onclick="filterData('all')">All Nodes</div>
+    <div class="filter-chip" onclick="filterData('computational')">Computational / Math</div>
+    <div class="filter-chip" onclick="filterData('cell_signaling')">Molecular / Cell</div>
+    <div class="filter-chip" onclick="filterData('ecology_evolution')">Eco / Evo</div>
+    <div class="filter-chip" onclick="filterData('synchronization')">Synchronization</div>
+</div>
+
+<div id="container">
+    <div id="sidebar">
+        <div id="side-content">
+            </div>
+    </div>
+    <div id="viz">
+        <div id="tooltip" class="tooltip"></div>
+        <svg id="network-svg"></svg>
+    </div>
+</div>
+
+<script>
+// Data derived from EMBL 2026 Proceedings
+const masterData = {
+    report: {
+        nodes: [
+            { id: "EMBL 2026", type: "root", size: 22 },
+            { id: "The Decoder", type: "hub", size: 16, info: "Computational Manifolds & Genetics" },
+            { id: "Sync Module", type: "hub", size: 16, info: "Collective Stochasticity" },
+            { id: "Eco-Drivers", type: "hub", size: 16, info: "Global Forcing & Tides" },
+            { id: "Shweta Pandey", topic: "computational", group: 1 },
+            { id: "Yves Paychère", topic: "computational", group: 1 },
+            { id: "Vishwesha Guttal", topic: "synchronization", group: 2 },
+            { id: "Audrey Mat", topic: "ecology_evolution", group: 3 },
+            { id: "Orit Peleg", topic: "ecology_evolution", group: 3 },
+            { id: "Lendert Gelens", topic: "cell_signaling", group: 2 },
+            { id: "Shaon Chakrabarti", topic: "computational", group: 1 }
+        ],
+        links: [
+            { source: "EMBL 2026", target: "The Decoder" }, { source: "EMBL 2026", target: "Sync Module" }, { source: "EMBL 2026", target: "Eco-Drivers" },
+            { source: "The Decoder", target: "Shweta Pandey" }, { source: "The Decoder", target: "Yves Paychère" }, { source: "The Decoder", target: "Shaon Chakrabarti" },
+            { source: "Sync Module", target: "Vishwesha Guttal" }, { source: "Sync Module", target: "Lendert Gelens" },
+            { source: "Eco-Drivers", target: "Audrey Mat" }, { source: "Eco-Drivers", target: "Orit Peleg" }
+        ]
+    },
+    timeline: {
+        nodes: [
+            { id: "Symposium", type: "root", size: 22 },
+            { id: "Day 1", type: "day", url: "https://x.com/Shwdey/status/2036665987114652126", size: 18 },
+            { id: "Day 2", type: "day", url: "https://x.com/Shwdey/status/2036734151848546568", size: 18 },
+            { id: "Day 3", type: "day", url: "https://x.com/Shwdey/status/2037285034982363435", size: 18 },
+            { id: "Day 4", type: "day", url: "https://x.com/Shwdey/status/2037794157566058943", size: 18 },
+            { id: "Theo Geisel", group: 4 }, { id: "Audrey Mat ", group: 4 },
+            { id: "Lorenz Fenk", group: 4 }, { id: "Ina Sonnen", group: 4 },
+            { id: "V. Guttal", group: 4 }, { id: "L. Gelens", group: 4 },
+            { id: "Y. Paychère", group: 4 }, { id: "A. Banerjee", group: 4 }
+        ],
+        links: [
+            { source: "Symposium", target: "Day 1" }, { source: "Symposium", target: "Day 2" }, { source: "Symposium", target: "Day 3" }, { source: "Symposium", target: "Day 4" },
+            { source: "Day 1", target: "Theo Geisel" }, { source: "Day 1", target: "Audrey Mat " },
+            { source: "Day 2", target: "Lorenz Fenk" }, { source: "Day 2", target: "Ina Sonnen" },
+            { source: "Day 3", target: "V. Guttal" }, { source: "Day 3", target: "L. Gelens" },
+            { source: "Day 4", target: "Y. Paychère" }, { source: "Day 4", target: "A. Banerjee" }
+        ]
+    }
+};
+
+let currentMode = 'report';
+const svg = d3.select("#network-svg");
+const tooltip = d3.select("#tooltip");
+
+function switchMode(mode) {
+    currentMode = mode;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    renderSidebar();
+    initNetwork();
+}
+
+function renderSidebar() {
+    const side = document.getElementById('side-content');
+    if(currentMode === 'report') {
+        side.innerHTML = `
+            <h1>The Interactome</h1>
+            <div class="sub-header">Functional Interpretation</div>
+            <div class="module-card">
+                <div class="module-title">Central Hub: The Decoder</div>
+                <div class="module-desc">Manifold learning connects scRNA-seq noise to genetic dephasing. Your project, <b>Circanet</b>, is a high-degree node here.</div>
+            </div>
+            <div class="module-card">
+                <div class="module-title">Cross-Scale Coupling</div>
+                <div class="module-desc">Synchrony acts as a bridge between molecular cycles and global ecological forcing functions.</div>
+            </div>
+        `;
+    } else {
+        side.innerHTML = `
+            <h1>Temporal Log</h1>
+            <div class="sub-header">Conference Evolution</div>
+            <div class="module-card">
+                <div class="module-title">Click Nodes for Detail</div>
+                <div class="module-desc">Each "Day" node is a portal to the live-reporting archive on X, preserving the real-time discourse of the event.</div>
+            </div>
+        `;
+    }
+}
+
+function initNetwork() {
+    svg.selectAll("*").remove();
+    const data = masterData[currentMode];
+    const width = document.getElementById('viz').clientWidth;
+    const height = document.getElementById('viz').clientHeight;
+
+    const simulation = d3.forceSimulation(data.nodes)
+        .force("link", d3.forceLink(data.links).id(d => d.id).distance(120))
+        .force("charge", d3.forceManyBody().strength(-500))
+        .force("center", d3.forceCenter(width / 2, height / 2))
+        .force("collision", d3.forceCollide().radius(40));
+
+    const g = svg.append("g");
+    svg.call(d3.zoom().on("zoom", (e) => g.attr("transform", e.transform)));
+
+    const link = g.append("g").selectAll("line").data(data.links).enter().append("line")
+        .attr("class", "link");
+
+    const node = g.append("g").selectAll("g").data(data.nodes).enter().append("g")
+        .attr("class", "node")
+        .call(d3.drag().on("start", dragStart).on("drag", dragging).on("end", dragEnd))
+        .on("click", (e, d) => { if(d.url) window.open(d.url, '_blank'); })
+        .on("mouseover", (e, d) => {
+            tooltip.style("opacity", 1).html(`<b>${d.id}</b>${d.info ? '<br>'+d.info : ''}${d.url ? '<br>(Click to view X Thread)' : ''}`)
+                .style("left", (e.pageX + 15) + "px").style("top", (e.pageY - 15) + "px");
+        })
+        .on("mouseout", () => tooltip.style("opacity", 0));
+
+    node.append("circle")
+        .attr("r", d => d.size || 8)
+        .attr("fill", d => d.type === "root" ? "#3b82f6" : (d.type === "day" ? "#10b981" : "#111827"));
+
+    node.append("text")
+        .attr("dy", 25).attr("text-anchor", "middle")
+        .text(d => d.id);
+
+    simulation.on("tick", () => {
+        link.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+        node.attr("transform", d => `translate(${d.x},${d.y})`);
+    });
+
+    function dragStart(e, d) { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; }
+    function dragging(e, d) { d.fx = e.x; d.fy = e.y; }
+    function dragEnd(e, d) { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }
+}
+
+function filterData(topic) {
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    const nodes = d3.selectAll(".node");
+    if(topic === 'all') {
+        nodes.style("opacity", 1);
+    } else {
+        nodes.style("opacity", d => d.topic === topic || d.type === 'root' || d.type === 'hub' ? 1 : 0.1);
+    }
+}
+
+// Start
+switchMode('report');
+window.addEventListener('resize', initNetwork);
+</script>
+</body>
+</html>
