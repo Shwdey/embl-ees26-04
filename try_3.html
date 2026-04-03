@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>EMBL 2026: Strategic Report & Timeline</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { margin:0; background:#f8fafc; font-family: 'Inter', sans-serif; color: #1e293b; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+        
+        /* Navigation Tabs */
+        #nav { background: #ffffff; padding: 15px 40px; display: flex; gap: 20px; border-bottom: 1px solid #e2e8f0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .tab-btn { padding: 10px 20px; border: none; background: #f1f5f9; border-radius: 8px; cursor: pointer; font-weight: 600; color: #64748b; transition: 0.3s; }
+        .tab-btn.active { background: #2563eb; color: white; }
+        
+        /* Layout Containers */
+        #main-content { display: flex; flex-grow: 1; overflow: hidden; }
+        #sidebar { width: 380px; background: white; border-right: 1px solid #e2e8f0; padding: 30px; overflow-y: auto; }
+        #viz-container { flex-grow: 1; position: relative; background: radial-gradient(circle at center, #ffffff 0%, #f1f5f9 100%); }
+        
+        /* Report Styles */
+        h1 { font-size: 1.2rem; font-weight: 800; margin: 0 0 20px 0; border-bottom: 3px solid #2563eb; padding-bottom: 10px; }
+        .section-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: #2563eb; margin-top: 25px; font-weight: 700; }
+        .card { background: #f8fafc; padding: 15px; border-radius: 8px; margin-top: 10px; font-size: 0.85rem; line-height: 1.6; border-left: 4px solid #e2e8f0; }
+        .card.highlight { border-left-color: #2563eb; background: #eff6ff; }
+        
+        /* D3 Styles */
+        svg { width: 100%; height: 100%; cursor: grab; }
+        svg:active { cursor: grabbing; }
+        .tooltip {
+            position: absolute; background: #1e293b; color: white; padding: 10px;
+            border-radius: 6px; font-size: 0.75rem; pointer-events: none; opacity: 0; z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+
+<div id="nav">
+    <button class="tab-btn active" onclick="switchView('inference')">The Synthesis (Inference)</button>
+    <button class="tab-btn" onclick="switchView('timeline')">The Timeline (Day-wise)</button>
+</div>
+
+<div id="main-content">
+    <div id="sidebar">
+        <div id="sidebar-content">
+            </div>
+    </div>
+    
+    <div id="viz-container">
+        <div id="tooltip" class="tooltip"></div>
+        <svg id="network-svg"></svg>
+    </div>
+</div>
+
+<script>
+// DATASETS
+const inferenceData = {
+    name: "EMBL Synthesis",
+    children: [
+        { name: "Emergent Order", children: [{name:"Guttal"}, {name:"Shniderman"}, {name:"Gelens"}]},
+        { name: "Global Rhythms", children: [{name:"Mat"}, {name:"Bogdziewicz"}, {name:"Peleg"}, {name:"Portes"}]},
+        { name: "Acoustic Physics", children: [{name:"Geisel"}, {name:"Banerjee"}, {name:"Elemens"}, {name:"Tatulea-Codrean"}]},
+        { name: "The Decoder", children: [{name:"Paychère"}, {name:"Chakrabarti"}, {name:"Pandey"}, {name:"Herzel"}]}
+    ]
+};
+
+const timelineData = {
+    name: "EMBL Schedule",
+    children: [
+        { name: "Day 1", link: "https://x.com/Shwdey/status/2036665987114652126?s=20", children: [{name:"Audrey Mat"}, {name:"Theo Geisel"}, {name:"F. Schweisguth"}]},
+        { name: "Day 2", link: "https://x.com/Shwdey/status/2036734151848546568?s=20", children: [{name:"Lorenz Fenk"}, {name:"Ina Sonnen"}, {name:"Orit Peleg"}]},
+        { name: "Day 3", link: "https://x.com/Shwdey/status/2037285034982363435?s=20", children: [{name:"Vishwesha Guttal"}, {name:"Shaon Chakrabarti"}, {name:"Lendert Gelens"}]},
+        { name: "Day 4", link: "https://x.com/Shwdey/status/2037794157566058943?s=20", children: [{name:"Yves Paychère"}, {name:"Arkarup Banerjee"}, {name:"Elad Shniderman"}]}
+    ]
+};
+
+// VIZ LOGIC
+let currentView = 'inference';
+const svg = d3.select("#network-svg");
+const tooltip = d3.select("#tooltip");
+const sidebar = document.getElementById('sidebar-content');
+
+function switchView(view) {
+    currentView = view;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    renderSidebar();
+    updateViz();
+}
+
+function renderSidebar() {
+    if(currentView === 'inference') {
+        sidebar.innerHTML = `
+            <h1>Strategic Brief</h1>
+            <div class="section-title">Central Inference</div>
+            <div class="card highlight">Biological oscillators are universal architects of resilience. Synchrony is the strategy life uses to find order in environmental noise.</div>
+            <div class="section-title">Future Directions</div>
+            <div class="card"><b>Clinical:</b> Manifold decoding to detect circadian dephasing in cancer patients.</div>
+            <div class="card"><b>Ecological:</b> Engineering cross-species synchrony to buffer climate impact.</div>
+        `;
+    } else {
+        sidebar.innerHTML = `
+            <h1>Day-wise Timeline</h1>
+            <div class="section-title">Conference Log</div>
+            <div class="card highlight">Click a Day node to view the full live-report thread on X.</div>
+            <div class="card"><b>Day 1:</b> Deep Sea & Musical Sync</div>
+            <div class="card"><b>Day 2:</b> Lizards, Sleep & Fireflies</div>
+            <div class="card"><b>Day 3:</b> Fish Schools & Stochasticity</div>
+            <div class="card"><b>Day 4:</b> Math Manifolds & Hydrodynamics</div>
+        `;
+    }
+}
+
+function updateViz() {
+    svg.selectAll("*").remove();
+    const data = currentView === 'inference' ? inferenceData : timelineData;
+    const root = d3.hierarchy(data);
+    const links = root.links();
+    const nodes = root.descendants();
+    const width = document.getElementById('viz-container').clientWidth;
+    const height = document.getElementById('viz-container').clientHeight;
+
+    const simulation = d3.forceSimulation(nodes)
+        .force("link", d3.forceLink(links).distance(100).strength(0.5))
+        .force("charge", d3.forceManyBody().strength(-500))
+        .force("center", d3.forceCenter(width / 2, height / 2))
+        .force("x", d3.forceX(width / 2).strength(0.1))
+        .force("y", d3.forceY(height / 2).strength(0.1));
+
+    const g = svg.append("g");
+    
+    // Zoom/Pan
+    svg.call(d3.zoom().on("zoom", (e) => g.attr("transform", e.transform)));
+
+    const link = g.append("g").selectAll("line").data(links).enter().append("line")
+        .attr("stroke", "#e2e8f0").attr("stroke-width", 2);
+
+    const node = g.append("g").selectAll("g").data(nodes).enter().append("g")
+        .call(d3.drag()
+            .on("start", (e, d) => { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+            .on("drag", (e, d) => { d.fx = e.x; d.fy = e.y; })
+            .on("end", (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }))
+        .on("click", (e, d) => { if(d.data.link) window.open(d.data.link, '_blank'); })
+        .on("mouseover", (e, d) => {
+            tooltip.style("opacity", 1).html(`<b>${d.data.name}</b>${d.data.link ? '<br>Click to view X Thread' : ''}`)
+                .style("left", (e.pageX + 10) + "px").style("top", (e.pageY - 10) + "px");
+        })
+        .on("mouseout", () => tooltip.style("opacity", 0));
+
+    node.append("circle")
+        .attr("r", d => 15 - (d.depth * 3))
+        .attr("fill", d => d.depth === 0 ? "#1e293b" : (d.depth === 1 ? "#2563eb" : "#ffffff"))
+        .attr("stroke", "#2563eb").attr("stroke-width", 2);
+
+    node.append("text")
+        .attr("dy", 30).attr("text-anchor", "middle")
+        .text(d => d.data.name).style("font-size", "10px").style("fill", "#64748b");
+
+    simulation.on("tick", () => {
+        link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+        node.attr("transform", d => `translate(${d.x},${d.y})`);
+    });
+}
+
+// Init
+renderSidebar();
+updateViz();
+window.onresize = updateViz;
+</script>
+</body>
+</html>
