@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>EMBL EES 2026 · Biological Oscillators</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=Lora:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F5F2EB;--bg2:#EDE9E0;--bg3:#E4DFD4;
+  --text:#1C1916;--text2:#6B655A;--text3:#9B9186;
+  --border:rgba(28,25,22,0.10);
+  --c-circ:#1D9E75;--c-cell:#7B5EA7;--c-sync:#D4633A;
+  --c-math:#2472B8;--c-eco:#6B9C2E;--c-comp:#C4831A;
+  --hh:96px;--fh:40px;--th:62px;--sw:370px;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:'Syne',sans-serif;color:var(--text);}
+#header{position:fixed;top:0;left:0;right:0;z-index:60;background:var(--bg);border-bottom:1px solid var(--border);display:flex;flex-direction:column;}
+#hrow1{display:flex;align-items:center;justify-content:space-between;padding:9px 18px 5px;gap:10px;min-height:58px;}
+#htb{flex:1;min-width:0;}
+#hlbl{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:2px;}
+#hsynp{font-size:15px;font-weight:700;line-height:1.2;color:var(--text);}
+#hmeta{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:2px;}
+#hstats{display:flex;gap:14px;flex-shrink:0;}
+.stat{display:flex;flex-direction:column;align-items:flex-end;}
+.stat-num{font-size:17px;font-weight:700;line-height:1;}
+.stat-lbl{font-size:9px;color:var(--text3);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.06em;}
+#hrow2{display:flex;align-items:center;gap:4px;padding:3px 12px 7px;overflow-x:auto;}
+#hrow2::-webkit-scrollbar{display:none;}
+.daytab{padding:4px 13px;border-radius:14px;font-size:10px;font-weight:700;font-family:'DM Mono',monospace;cursor:pointer;border:1.5px solid transparent;background:var(--bg3);color:var(--text2);transition:all .15s;white-space:nowrap;flex-shrink:0;}
+.daytab:hover:not(.active){border-color:var(--text3);}
+.daytab.active{background:var(--text);color:var(--bg);border-color:var(--text);}
+.daytab.d1.active{background:#8B6914;border-color:#8B6914;}
+.daytab.d2.active{background:#3A6B1A;border-color:#3A6B1A;}
+.daytab.d3.active{background:#1A3A6B;border-color:#1A3A6B;}
+.daytab.d4.active{background:#6B1A8B;border-color:#6B1A8B;}
+#fbar{position:fixed;top:var(--hh);left:0;right:var(--sw);z-index:40;height:var(--fh);background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:5px;padding:0 14px;overflow-x:auto;}
+#fbar::-webkit-scrollbar{display:none;}
+.fl{font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-right:3px;white-space:nowrap;flex-shrink:0;}
+.fsep{width:1px;height:18px;background:var(--border);flex-shrink:0;margin:0 3px;}
+.chip{display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;border:1.5px solid transparent;font-size:10px;font-weight:600;cursor:pointer;transition:all .13s;white-space:nowrap;background:var(--bg3);color:var(--text2);flex-shrink:0;}
+.chip .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.chip.active{background:var(--text);color:var(--bg);border-color:var(--text);}
+.chip:hover:not(.active){border-color:var(--text2);}
+.chip-flash.active{background:#777;border-color:#777;}
+#canvas{position:fixed;top:calc(var(--hh) + var(--fh));left:0;right:var(--sw);bottom:var(--th);overflow:hidden;background:var(--bg);}
+#canvas svg{width:100%;height:100%;}
+#sidebar{position:fixed;top:0;right:0;width:var(--sw);height:100%;background:var(--bg);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;}
+#sidebar::-webkit-scrollbar{width:3px;}
+#sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+#sbdef{padding:28px 20px;text-align:center;}
+#sbdef .big{font-size:28px;font-weight:800;line-height:1.05;margin-bottom:8px;}
+#sbdef .sub{font-size:12px;color:var(--text2);line-height:1.65;font-family:'Lora',serif;font-style:italic;}
+.dbts{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:14px;}
+.dbt{padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;border:none;transition:transform .12s;font-family:'DM Mono',monospace;}
+.dbt:hover{transform:scale(1.05);}
+#sbsp{display:none;}
+#sbst{padding:20px 20px 15px;border-bottom:1px solid var(--border);}
+.sbey{font-size:9px;font-family:'DM Mono',monospace;color:var(--text3);text-transform:uppercase;letter-spacing:.12em;margin-bottom:5px;}
+#sbn{font-size:20px;font-weight:700;line-height:1.1;margin-bottom:4px;}
+#sbi{font-size:12px;color:var(--text2);margin-bottom:2px;}
+#sbc{font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);}
+#sbb{padding:15px 20px;flex:1;}
+.lbl{font-size:9px;font-family:'DM Mono',monospace;color:var(--text3);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;}
+.mrow{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;}
+.mt{padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;font-family:'DM Mono',monospace;background:var(--bg3);color:var(--text2);}
+.mt.day{background:var(--text);color:var(--bg);}
+.mt.sess{background:var(--bg2);color:var(--text);border:1px solid var(--border);}
+.mt.virt{background:#E8D5FF;color:#5B1A8B;}
+#sbtlk{font-family:'Lora',serif;font-style:italic;font-size:14px;line-height:1.6;margin-bottom:14px;}
+#sbsum{font-size:12px;line-height:1.7;color:var(--text2);margin-bottom:14px;border-left:2px solid var(--border);padding-left:10px;}
+#sbtops{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:14px;}
+.tpill{padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600;color:#fff;}
+.ci{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:opacity .12s;}
+.ci:hover{opacity:.65;}
+.cdot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.cn{font-size:12px;font-weight:600;}
+.cr{font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);margin-left:auto;}
+#sbsess{display:none;}
+#sbst2{padding:20px 20px 15px;border-bottom:1px solid var(--border);}
+#sbsn{font-size:18px;font-weight:700;margin-bottom:4px;}
+#sbsm{font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);margin-bottom:3px;}
+#sbsc{font-size:12px;color:var(--text2);}
+#sbsb{padding:15px 20px;}
+.ssp{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:opacity .12s;}
+.ssp:hover{opacity:.65;}
+.sspdot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.sspn{font-size:12px;font-weight:600;}
+.sspi{font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);margin-left:auto;text-align:right;max-width:100px;line-height:1.3;}
+#sbleg{padding:15px 20px;border-top:1px solid var(--border);margin-top:auto;flex-shrink:0;}
+.lt{font-size:9px;font-family:'DM Mono',monospace;color:var(--text3);text-transform:uppercase;letter-spacing:.12em;margin-bottom:9px;}
+.li{display:flex;align-items:center;gap:7px;margin-bottom:5px;font-size:11px;color:var(--text2);}
+.ld{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+#sbcred{padding:12px 20px;border-top:1px solid var(--border);font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);line-height:1.7;flex-shrink:0;}
+#tl{position:fixed;bottom:0;left:0;right:var(--sw);height:var(--th);background:var(--bg2);border-top:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+#tll{display:flex;height:18px;flex-shrink:0;border-bottom:1px solid var(--border);padding-left:44px;}
+.tld{font-size:8px;font-family:'DM Mono',monospace;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;font-weight:600;display:flex;align-items:center;justify-content:center;border-right:1px solid var(--border);padding:0 3px;flex-shrink:0;}
+.tld:last-child{border-right:none;}
+#tltrack{flex:1;position:relative;}
+#tlsvg{position:absolute;left:44px;top:0;right:0;bottom:0;width:calc(100% - 44px);height:100%;}
+#tlplay{position:absolute;left:0;top:0;bottom:0;width:44px;display:flex;align-items:center;justify-content:center;border-right:1px solid var(--border);}
+#pbtn{width:28px;height:28px;border-radius:50%;background:var(--text);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:opacity .15s,transform .15s;}
+#pbtn:hover{opacity:.8;transform:scale(1.07);}
+#pbtn svg{fill:var(--bg);}
+#tip{position:fixed;background:var(--text);color:var(--bg);padding:8px 12px;border-radius:8px;font-size:11px;font-weight:600;pointer-events:none;opacity:0;transition:opacity .1s;z-index:200;max-width:240px;line-height:1.5;}
+#tip .tt{font-size:12px;font-weight:700;margin-bottom:2px;}
+#tip .ts{font-size:9px;font-weight:400;opacity:.7;font-family:'DM Mono',monospace;}
+#hint{position:fixed;bottom:calc(var(--th) + 8px);left:calc(50% - var(--sw)/2);transform:translateX(-50%);font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);background:var(--bg2);border:1px solid var(--border);padding:4px 11px;border-radius:20px;pointer-events:none;transition:opacity .5s;z-index:60;white-space:nowrap;}
+#fitbtn{position:fixed;top:calc(var(--hh) + var(--fh) + 10px);right:calc(var(--sw) + 10px);z-index:50;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:10px;font-family:'DM Mono',monospace;color:var(--text2);cursor:pointer;transition:all .13s;}
+#fitbtn:hover{border-color:var(--text2);color:var(--text);}
+.cross-arc{fill:none;stroke-linecap:round;stroke-dasharray:8 5;animation:dashf 1.8s linear infinite;}
+@keyframes dashf{to{stroke-dashoffset:-26;}}
+@media(max-width:768px){
+  :root{--sw:0px;--hh:108px;--fh:38px;--th:56px;}
+  #hstats,#hmeta{display:none;}
+  #hsynp{font-size:13px;}
+  #sidebar{display:none;}
+  #fbar,#canvas,#tl{right:0;}
+  #fitbtn{right:10px;}
+  #hint{left:50%;transform:translateX(-50%);}
+  #mobov,#mobdraw{display:block;}
+}
+@media(min-width:769px){#mobov,#mobdraw{display:none!important;}}
+#mobov{display:none;position:fixed;inset:0;z-index:70;background:rgba(28,25,22,.25);}
+#mobdraw{display:none;position:fixed;bottom:0;left:0;right:0;z-index:80;background:var(--bg);border-top:1px solid var(--border);border-radius:16px 16px 0 0;max-height:72vh;overflow-y:auto;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);}
+#mobdraw.open{transform:translateY(0);}
+#mobh{display:flex;align-items:center;justify-content:center;padding:10px 0 5px;cursor:pointer;}
+#mobh::before{content:'';width:36px;height:4px;background:var(--border);border-radius:2px;}
+#mobin{padding:0 18px 28px;}
+#mobcl{position:absolute;top:14px;right:16px;background:none;border:none;cursor:pointer;font-size:18px;color:var(--text3);line-height:1;}
+</style>
+</head>
+<body>
+<div id="header">
+  <div id="hrow1">
+    <div id="htb">
+      <div id="hlbl">EMBO | EMBL Symposium · EES 2026-04</div>
+      <div id="hsynp">Biological Oscillators: Rhythms &amp; Synchronisation Across Scales</div>
+      <div id="hmeta">EMBL Heidelberg &nbsp;·&nbsp; 24–27 March 2026 &nbsp;·&nbsp; Reporter: Shweta Pandey, CSIR-IMTECH</div>
+    </div>
+    <div id="hstats">
+      <div class="stat"><span class="stat-num" id="statn">38</span><span class="stat-lbl">Speakers</span></div>
+      <div class="stat"><span class="stat-num">16</span><span class="stat-lbl">Countries</span></div>
+      <div class="stat"><span class="stat-num">5</span><span class="stat-lbl">Sessions</span></div>
+      <div class="stat"><span class="stat-num">4</span><span class="stat-lbl">Days</span></div>
+    </div>
+  </div>
+  <div id="hrow2">
+    <div class="daytab d1 active" data-day="1" onclick="setDay(1,this)">Day 1 · Tue 24</div>
+    <div class="daytab d2" data-day="2" onclick="setDay(2,this)">Day 2 · Wed 25</div>
+    <div class="daytab d3" data-day="3" onclick="setDay(3,this)">Day 3 · Thu 26</div>
+    <div class="daytab d4" data-day="4" onclick="setDay(4,this)">Day 4 · Fri 27</div>
+    <div class="daytab" data-day="all" onclick="setDay('all',this)">Overview</div>
+  </div>
+</div>
+<div id="fbar">
+  <span class="fl">Topic</span>
+  <div class="chip chip-all active" onclick="filterTopic('all',this)">All</div>
+  <div class="chip" onclick="filterTopic('circadian_clock',this)"><span class="dot" style="background:var(--c-circ)"></span>Circadian</div>
+  <div class="chip" onclick="filterTopic('cell_signaling',this)"><span class="dot" style="background:var(--c-cell)"></span>Cell &amp; Mol.</div>
+  <div class="chip" onclick="filterTopic('synchronization',this)"><span class="dot" style="background:var(--c-sync)"></span>Sync.</div>
+  <div class="chip" onclick="filterTopic('mathematical_modeling',this)"><span class="dot" style="background:var(--c-math)"></span>Math</div>
+  <div class="chip" onclick="filterTopic('ecology_evolution',this)"><span class="dot" style="background:var(--c-eco)"></span>Ecology</div>
+  <div class="chip" onclick="filterTopic('computational',this)"><span class="dot" style="background:var(--c-comp)"></span>Comp.</div>
+  <div class="fsep"></div>
+  <div class="chip chip-flash active" onclick="toggleFlash(this)"><span class="dot" style="background:#999"></span>Flash/Posters</div>
+</div>
+<div id="canvas"></div>
+<button id="fitbtn" onclick="fitView()">⊕ Fit</button>
+<div id="sidebar">
+  <div id="sbdef">
+    <div class="big">Biological<br>Oscillators</div>
+    <div class="sub">Navigate day by day to explore each session as a radial cluster. Click any speaker node to reveal their research and cross-session topic connections.</div>
+    <div class="dbts">
+      <button class="dbt" style="background:#F5E6C0;color:#8B6914" onclick="setDay(1,document.querySelector('[data-day=\'1\']'))">Day 1 · Tue 24</button>
+      <button class="dbt" style="background:#D0E8C0;color:#3A6B1A" onclick="setDay(2,document.querySelector('[data-day=\'2\']'))">Day 2 · Wed 25</button>
+      <button class="dbt" style="background:#C0D0E8;color:#1A3A6B" onclick="setDay(3,document.querySelector('[data-day=\'3\']'))">Day 3 · Thu 26</button>
+      <button class="dbt" style="background:#E0C0E8;color:#6B1A8B" onclick="setDay(4,document.querySelector('[data-day=\'4\']'))">Day 4 · Fri 27</button>
+    </div>
+  </div>
+  <div id="sbsp">
+    <div id="sbst">
+      <div class="sbey" id="sbey">Speaker Profile</div>
+      <div id="sbn"></div><div id="sbi"></div><div id="sbc"></div>
+    </div>
+    <div id="sbb">
+      <div class="mrow" id="sbmeta"></div>
+      <div class="lbl">Talk title</div><div id="sbtlk"></div>
+      <div class="lbl" id="lblsum">Scientific context</div><div id="sbsum"></div>
+      <div class="lbl">Research areas</div><div id="sbtops"></div>
+      <div><div class="lbl">Cross-session connections</div><div id="sbclist"></div></div>
+    </div>
+  </div>
+  <div id="sbsess">
+    <div id="sbst2">
+      <div class="sbey">Session Overview</div>
+      <div id="sbsn"></div><div id="sbsm"></div><div id="sbsc"></div>
+    </div>
+    <div id="sbsb"><div class="lbl" style="margin-bottom:9px">Speakers</div><div id="sbslist"></div></div>
+  </div>
+  <div id="sbleg">
+    <div class="lt">Node key</div>
+    <div class="li"><svg width="20" height="20"><circle cx="10" cy="10" r="9" fill="var(--text)" opacity=".85"/></svg>Invited talk (large)</div>
+    <div class="li"><svg width="20" height="20"><circle cx="10" cy="10" r="6" fill="var(--text)" opacity=".55"/></svg>Contributed talk</div>
+    <div class="li"><svg width="20" height="20"><polygon points="10,2 18,17 2,17" fill="var(--text3)"/></svg>Flash / Poster</div>
+    <div style="height:6px"></div>
+    <div class="lt">Topic colours</div>
+    <div class="li"><span class="ld" style="background:var(--c-circ)"></span>Circadian &amp; Clocks</div>
+    <div class="li"><span class="ld" style="background:var(--c-cell)"></span>Cell &amp; Molecular</div>
+    <div class="li"><span class="ld" style="background:var(--c-sync)"></span>Synchronization</div>
+    <div class="li"><span class="ld" style="background:var(--c-math)"></span>Math Modelling</div>
+    <div class="li"><span class="ld" style="background:var(--c-eco)"></span>Ecology &amp; Evolution</div>
+    <div class="li"><span class="ld" style="background:var(--c-comp)"></span>Computational</div>
+    <div style="height:6px"></div>
+    <div class="lt">Connections</div>
+    <div class="li"><svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="var(--c-sync)" stroke-width="2" stroke-dasharray="5 4"/></svg>Cross-session arc</div>
+  </div>
+  <div id="sbcred">Reported &amp; developed by<br><strong style="color:var(--text2)">Shweta Pandey</strong><br>CSIR-IMTECH, Chandigarh · India<br>Flash talk &amp; Poster presenter<br><span style="opacity:.7">#EESBioOsc · March 2026</span></div>
+</div>
+<div id="mobov" onclick="closeMob()"></div>
+<div id="mobdraw">
+  <div id="mobh" onclick="closeMob()"></div>
+  <button id="mobcl" onclick="closeMob()">×</button>
+  <div id="mobin"></div>
+</div>
+<div id="tl">
+  <div id="tll"></div>
+  <div id="tltrack">
+    <div id="tlplay">
+      <button id="pbtn" onclick="togglePlay()" title="Animate sessions">
+        <svg id="pico" width="10" height="12" viewBox="0 0 10 12"><path d="M0 0l10 6L0 12z"/></svg>
+        <svg id="paico" width="10" height="12" viewBox="0 0 10 12" style="display:none"><rect x="0" y="0" width="3.5" height="12"/><rect x="6.5" y="0" width="3.5" height="12"/></svg>
+      </button>
+    </div>
+    <svg id="tlsvg"></svg>
+  </div>
+</div>
+<div id="tip"><div class="tt"></div><div class="ts"></div></div>
+<div id="hint">Click a node · Use day tabs to explore · ▶ to animate</div>
+<script>
+const TM={
+  circadian_clock:{label:"Circadian & Clocks",color:"#1D9E75"},
+  cell_signaling:{label:"Cell & Molecular",color:"#7B5EA7"},
+  synchronization:{label:"Synchronization",color:"#D4633A"},
+  mathematical_modeling:{label:"Math Modelling",color:"#2472B8"},
+  ecology_evolution:{label:"Ecology & Evolution",color:"#6B9C2E"},
+  computational:{label:"Computational",color:"#C4831A"},
+};
+const SM={
+  S1:{label:"Session 1",long:"Session 1 · Biological Rhythms",day:1,time:"13:45–17:45",chair:"Orit Peleg, Univ. Colorado Boulder",color:"#C49B2A"},
+  S2:{label:"Session 2",long:"Session 2 · From Cells to Tissues",day:2,time:"09:00–12:00",chair:"Jordi Garcia-Ojalvo, Pompeu Fabra",color:"#3A9A45"},
+  S3:{label:"Session 3",long:"Session 3 · Surface & Circuit Osc.",day:2,time:"13:30–16:30",chair:"Alexander Aulehla, EMBL Heidelberg",color:"#2A5EB8"},
+  S4:{label:"Session 4",long:"Session 4 · Stochasticity & Sync",day:3,time:"09:30–12:30",chair:"Aneta Koseska, MPI Neurobiology",color:"#6A38A8"},
+  S5:{label:"Session 5",long:"Session 5 · Biophysics & Networks",day:4,time:"09:30–13:00",chair:"Felix Naef, EPFL",color:"#B83870"},
+  F1:{label:"Flash I",long:"Flash Talks & Poster Session 1",day:2,time:"16:00–18:00",chair:"Open session",color:"#888"},
+  F2:{label:"Flash II",long:"Flash Talks & Poster Session 2",day:3,time:"16:15–18:15",chair:"Open session",color:"#888"},
+};
+const SUMS={
+  "Audrey Mat":"Studies how marine invertebrates maintain endogenous clocks in deep-sea darkness, revealing that timekeeping is a deeply conserved cell-autonomous property that persists without light–dark cues.",
+  "Theo Geisel":"Uses mathematical modelling to explain how musicians spontaneously synchronize during ensemble performance — revealing neural coupling mechanisms parallel to broader theories of coupled oscillators.",
+  "François Schweisguth":"Investigates oscillatory Hedgehog signalling that coordinates tissue patterning in Drosophila, showing fate decisions are encoded in signal dynamics rather than steady-state levels.",
+  "Hanspeter Herzel":"Applies nonlinear dynamics and limit-cycle oscillator theory to the molecular architecture of the mammalian circadian clock; pioneer of models for jet lag and shift work disruption.",
+  "Marta del Olmo":"Develops computational tools for oscillator theory in Python — led a hands-on workshop where participants built ODE-based oscillator models from scratch.",
+  "Ina Sonnen":"Explores how Notch and Wnt signalling oscillations organise cell fate decisions during somitogenesis and tissue homeostasis.",
+  "Andrew Goryachev":"Studies the self-organized cytoskeletal oscillator that drives cell polarity cycles, combining reaction–diffusion modelling with live microscopy.",
+  "Sapna Chhabra":"Investigates thermal robustness of the vertebrate segmentation clock using zebrafish embryos and synthetic gene circuits.",
+  "Shaon Chakrabarti":"Combines probabilistic ML with neural network latent spaces to decode circadian phase from single-cell transcriptomics — without explicit timestamps. (NCBS India)",
+  "Michał Bogdziewicz":"Studies mast seeding — synchronized mass fruiting of entire forests — as a population-level oscillator shaped by climate and interspecific synchrony.",
+  "Smitha Maretvadakethope":"Applies bifurcation analysis to genetic circuits showing both oscillatory and switch-like behaviour, revealing how biological circuits support multiple functional regimes.",
+  "Mor Nitzan":"Develops dynamical prototype matching to identify oscillatory processes hidden in static single-cell RNA-seq snapshots. (Presented virtually)",
+  "Orit Peleg":"Studies collective synchronization in firefly swarms using field data, computer vision, and agent-based modelling. Also chaired Session 1.",
+  "Haneul Yoo":"Investigates oscillatory RNA Polymerase II condensation into transcriptional condensates that drive synchronous gene co-expression bursts.",
+  "Anzy Miller":"Examines oscillatory NGN3 expression that gates timing of endocrine progenitor commitment during human pancreatic development.",
+  "Min Wu":"Studies how cell surface receptors generate oscillatory biochemical signals, and the fundamental limitations of simple feedback architectures.",
+  "Euan Mackay":"Develops active matter models to explain spontaneous actomyosin oscillations during epithelial morphogenesis.",
+  "Ximena Soto":"Investigates oscillatory gene expression dynamics in spinal cord regeneration in axolotl using single-cell sequencing and live imaging.",
+  "Vishwesha Guttal":"Combines stochastic population dynamics with synchrony theory to understand how noise and coupling interact in ecological systems — from flocking to predator–prey cycles. (IISc Bangalore)",
+  "Henrique Valim":"Studies circadian clock function in Trebouxia algae within lichens, comparing species adapted to different climate niches.",
+  "Lendert Gelens":"Uses temperature modulation and microfluidics to synchronize embryonic cell-cycle oscillators in Xenopus egg extracts.",
+  "Federico Scaramuzza":"Investigates molecular plasticity of the circadian–circalunidian clock in marine organisms under tidal and lunar signals.",
+  "Flavio Fenton":"Models the cardiac transition from stable oscillations to chaotic arrhythmias, developing anti-arrhythmic therapies from nonlinear dynamics.",
+  "Coen P. Elemens":"Studies how vocal membranes generate oscillatory sound from mice to whales — revealing universal physical principles of voice production.",
+  "Kirsty Wan":"Studies how arrays of cilia and flagella coordinate through symmetry-breaking and metachronal waves — coupled oscillators producing emergent spatiotemporal order.",
+  "Maria Teresa Portes":"Investigates oscillatory bioelectric signals at the pollen tube tip that regulate plant fertilisation.",
+  "Yves Paychère":"Develops ML methods to learn periodic manifolds from scRNA-seq data, revealing hidden oscillatory dynamics in cancer cell cycles and the circadian clock.",
+  "Arkarup Banerjee":"Investigates how the brain generates intrinsic temporal structure in birdsong — rhythms spanning milliseconds to days. (Virtual)",
+  "Maria Tatulea-Codrean":"Models mechanosensitive molecular motors that drive helical flagellar rotation and synchronize through hydrodynamic interactions.",
+  "Elad Shniderman":"Studies synchronization in complex human social and neural networks using graph theory and dynamical systems. (Virtual)",
+  "Lorenz Fenk":"Investigates sleep rhythms in bearded dragons, which show mammalian-like slow-wave and REM cycles — evolutionary insights into sleep oscillators.",
+  "Shweta Pandey":"Flash talk and poster presenter from CSIR-IMTECH, Chandigarh, India. Reported the conference for EMBO/EMBL, capturing science from molecular clocks to ecological oscillators.",
+};
+const SP=[
+  {id:"Audrey Mat",inst:"University of Vienna",cty:"Austria",day:1,sess:"S1",type:"talk",inv:true,title:"Biological rhythms and clocks in the deep sea",topics:["circadian_clock","ecology_evolution"]},
+  {id:"Theo Geisel",inst:"MPI Dynamics & Self-Organization",cty:"Germany",day:1,sess:"S1",type:"talk",inv:true,title:"Human synchronization in musical interactions and its neural correlates",topics:["synchronization","mathematical_modeling"]},
+  {id:"François Schweisguth",inst:"Institut Pasteur",cty:"France",day:1,sess:"S1",type:"talk",inv:false,title:"Oscillatory Hedgehog signaling and coordination of fate dynamics in Drosophila",topics:["cell_signaling"]},
+  {id:"Hanspeter Herzel",inst:"Humboldt University Berlin",cty:"Germany",day:1,sess:"S1",type:"talk",inv:true,title:"Biological rhythms through the lens of oscillator theory",topics:["circadian_clock","mathematical_modeling"]},
+  {id:"Marta del Olmo",inst:"HU Berlin / Nature Comms",cty:"Germany",day:1,sess:"S1",type:"talk",inv:false,title:"From theory to practice: Exploring oscillators with simple models in Python",topics:["mathematical_modeling","computational"]},
+  {id:"Ina Sonnen",inst:"Hubrecht Institute",cty:"Netherlands",day:2,sess:"S2",type:"talk",inv:true,title:"How biological rhythms organise cell types: development to tissue homeostasis",topics:["circadian_clock","cell_signaling"]},
+  {id:"Andrew Goryachev",inst:"University of Edinburgh",cty:"UK",day:2,sess:"S2",type:"talk",inv:false,title:"The beating heart of the cytoskeletal oscillator",topics:["mathematical_modeling","cell_signaling"]},
+  {id:"Sapna Chhabra",inst:"EMBL Heidelberg",cty:"Germany",day:2,sess:"S2",type:"talk",inv:false,title:"Plastic clock, robust response: thermal robustness of vertebrate segmentation",topics:["circadian_clock","cell_signaling"]},
+  {id:"Shaon Chakrabarti",inst:"NCBS Bangalore",cty:"India",day:2,sess:"S2",type:"talk",inv:true,title:"Circadian phase decoding via probabilistic modelling of neural network latent spaces",topics:["circadian_clock","computational"]},
+  {id:"Michał Bogdziewicz",inst:"Adam Mickiewicz University",cty:"Poland",day:2,sess:"S2",type:"talk",inv:false,title:"General flowering in temperate forests from multi-timescale community synchrony",topics:["ecology_evolution","synchronization"]},
+  {id:"Smitha Maretvadakethope",inst:"Imperial College London",cty:"UK",day:2,sess:"S2",type:"talk",inv:false,title:"Uncovering the criticality zoo of the AC-DC genetic circuit",topics:["mathematical_modeling"]},
+  {id:"Mor Nitzan",inst:"Hebrew University Jerusalem",cty:"Israel",day:2,sess:"S2",type:"talk",inv:true,virt:true,title:"Revealing oscillatory biological processes via dynamical prototype matching",topics:["computational","cell_signaling"]},
+  {id:"Orit Peleg",inst:"University of Colorado Boulder",cty:"USA",day:2,sess:"S3",type:"talk",inv:true,title:"Firefly flash oscillators: collective synchrony in swarms",topics:["synchronization","ecology_evolution"]},
+  {id:"Haneul Yoo",inst:"MPI Immunobiology & Epigenetics",cty:"Germany",day:2,sess:"S3",type:"talk",inv:false,title:"Oscillatory RNA Polymerase II condensation with synchronous gene co-bursting",topics:["cell_signaling"]},
+  {id:"Anzy Miller",inst:"University of Manchester",cty:"UK",day:2,sess:"S3",type:"talk",inv:false,title:"NGN3 oscillatory expression controls timing of human pancreatic endocrine differentiation",topics:["cell_signaling"]},
+  {id:"Min Wu",inst:"Yale University",cty:"USA",day:2,sess:"S3",type:"talk",inv:true,title:"Oscillatory dynamics on cell surface and limitations of simple feedback loops",topics:["cell_signaling","mathematical_modeling"]},
+  {id:"Euan Mackay",inst:"University of Dundee",cty:"UK",day:2,sess:"S3",type:"talk",inv:false,title:"Active matter model captures dynamics of actomyosin oscillations in morphogenesis",topics:["cell_signaling"]},
+  {id:"Ximena Soto",inst:"University of Manchester",cty:"UK",day:2,sess:"S3",type:"talk",inv:false,title:"Role of gene expression dynamics in spinal cord regeneration",topics:["cell_signaling","computational"]},
+  {id:"Aida Coric",inst:"—",cty:"—",day:2,sess:"F1",type:"flash",inv:false,title:"",topics:[]},
+  {id:"Purna Sham Gadre",inst:"—",cty:"—",day:2,sess:"F1",type:"flash",inv:false,title:"",topics:[]},
+  {id:"Isabella Hajdu",inst:"—",cty:"—",day:2,sess:"F1",type:"flash",inv:false,title:"",topics:[]},
+  {id:"Simen Jacobs",inst:"—",cty:"—",day:2,sess:"F1",type:"flash",inv:false,title:"",topics:[]},
+  {id:"Luiza Konkina",inst:"—",cty:"—",day:2,sess:"F1",type:"flash",inv:false,title:"",topics:[]},
+  {id:"Hedda Meijer",inst:"—",cty:"—",day:2,sess:"F1",type:"flash",inv:false,title:"",topics:["circadian_clock"]},
+  {id:"Jooske Monster",inst:"—",cty:"Netherlands",day:2,sess:"F1",type:"flash",inv:false,title:"",topics:[]},
+  {id:"Shweta Pandey",inst:"CSIR-IMTECH Chandigarh",cty:"India",day:2,sess:"F1",type:"flash",inv:false,title:"Flash talk & Poster — conference reporter",topics:["computational"]},
+  {id:"Chengzhe Tian",inst:"—",cty:"UK",day:2,sess:"F1",type:"flash",inv:false,title:"",topics:[]},
+  {id:"Lea Urpa",inst:"—",cty:"—",day:2,sess:"F1",type:"flash",inv:false,title:"",topics:[]},
+  {id:"Samuel Zambrano",inst:"—",cty:"—",day:2,sess:"F1",type:"flash",inv:false,title:"",topics:["mathematical_modeling"]},
+  {id:"Vishwesha Guttal",inst:"Indian Institute of Science",cty:"India",day:3,sess:"S4",type:"talk",inv:true,title:"From stochasticity to synchrony in collective animal dynamics",topics:["synchronization","ecology_evolution","mathematical_modeling"]},
+  {id:"Henrique Valim",inst:"Senckenberg Biodiversity Centre",cty:"Germany",day:3,sess:"S4",type:"talk",inv:false,title:"Circadian dysregulation in climate niche-specific lichen-forming algae",topics:["circadian_clock","ecology_evolution"]},
+  {id:"Lendert Gelens",inst:"KU Leuven",cty:"Belgium",day:3,sess:"S4",type:"talk",inv:false,title:"Synchronizing embryonic cell cycles by temperature modulation",topics:["synchronization","cell_signaling","mathematical_modeling"]},
+  {id:"Federico Scaramuzza",inst:"University of Vienna",cty:"Austria",day:3,sess:"S4",type:"talk",inv:false,title:"Molecular mechanisms underlying circadian–circalunidian clock plasticity",topics:["circadian_clock"]},
+  {id:"Flavio Fenton",inst:"Georgia Institute of Technology",cty:"USA",day:3,sess:"S4",type:"talk",inv:true,title:"From normal heart oscillations to chaos (arrhythmias) and back",topics:["mathematical_modeling","synchronization"]},
+  {id:"Coen P. Elemens",inst:"University of Southern Denmark",cty:"Denmark",day:3,sess:"S4",type:"talk",inv:true,title:"Oscillatory dynamics in voice production from mice to whales",topics:["synchronization","computational"]},
+  {id:"Anubhuti Anushree",inst:"—",cty:"India",day:3,sess:"F2",type:"flash",inv:false,title:"",topics:[]},
+  {id:"Veronica Biga",inst:"—",cty:"UK",day:3,sess:"F2",type:"flash",inv:false,title:"",topics:["cell_signaling"]},
+  {id:"Moti Fridman",inst:"Bar-Ilan University",cty:"Israel",day:3,sess:"F2",type:"flash",inv:false,title:"",topics:[]},
+  {id:"Rosie Gallagher",inst:"—",cty:"UK",day:3,sess:"F2",type:"flash",inv:false,title:"",topics:[]},
+  {id:"Simon Knoblich",inst:"—",cty:"Germany",day:3,sess:"F2",type:"flash",inv:false,title:"",topics:[]},
+  {id:"Arthur Marcusse",inst:"—",cty:"Netherlands",day:3,sess:"F2",type:"flash",inv:false,title:"",topics:[]},
+  {id:"Hidenobu Miyazawa",inst:"—",cty:"Japan",day:3,sess:"F2",type:"flash",inv:false,title:"",topics:["cell_signaling"]},
+  {id:"Anjoom Nikhat",inst:"—",cty:"India",day:3,sess:"F2",type:"flash",inv:false,title:"",topics:[]},
+  {id:"Sara Pozzi",inst:"—",cty:"Italy",day:3,sess:"F2",type:"flash",inv:false,title:"",topics:[]},
+  {id:"Andrea Salati",inst:"—",cty:"Italy",day:3,sess:"F2",type:"flash",inv:false,title:"",topics:[]},
+  {id:"Koichiro Uriu",inst:"—",cty:"Japan",day:3,sess:"F2",type:"flash",inv:false,title:"",topics:["synchronization"]},
+  {id:"Myah Verghese",inst:"—",cty:"—",day:3,sess:"F2",type:"flash",inv:false,title:"",topics:[]},
+  {id:"Florence Woods",inst:"—",cty:"UK",day:3,sess:"F2",type:"flash",inv:false,title:"",topics:[]},
+  {id:"Kirsty Wan",inst:"University of Exeter",cty:"UK",day:4,sess:"S5",type:"talk",inv:true,title:"Coordinating active filaments: oscillations, symmetry-breaking, metachronal waves",topics:["synchronization","cell_signaling","ecology_evolution"]},
+  {id:"Maria Teresa Portes",inst:"University of São Paulo",cty:"Brazil",day:4,sess:"S5",type:"talk",inv:false,title:"Pollen tube tip as a bioelectric oscillator in growth, guidance, communication",topics:["cell_signaling","ecology_evolution"]},
+  {id:"Yves Paychère",inst:"EPFL",cty:"Switzerland",day:4,sess:"S5",type:"talk",inv:false,title:"Learning periodic manifolds from scRNA-seq reveals hidden oscillatory dynamics",topics:["computational","cell_signaling"]},
+  {id:"Arkarup Banerjee",inst:"Cold Spring Harbor Laboratory",cty:"USA",day:4,sess:"S5",type:"talk",inv:true,virt:true,title:"Intrinsic song rhythms from milliseconds to days",topics:["synchronization","computational"]},
+  {id:"Maria Tatulea-Codrean",inst:"University of Amsterdam",cty:"Netherlands",day:4,sess:"S5",type:"talk",inv:false,title:"Hydrodynamic synchronisation of helical rotors by mechanosensitive motors",topics:["synchronization","mathematical_modeling"]},
+  {id:"Elad Shniderman",inst:"Bar-Ilan University / Technion",cty:"Israel",day:4,sess:"S5",type:"talk",inv:false,virt:true,title:"Synchronization of complex human networks",topics:["synchronization","computational"]},
+  {id:"Lorenz Fenk",inst:"MPI for Biological Intelligence",cty:"Germany",day:4,sess:"S5",type:"talk",inv:true,title:"Dynamics and generation of sleep rhythms in Pogona vitticeps",topics:["circadian_clock","ecology_evolution"]},
+];
+const spMap=new Map(SP.map(s=>[s.id,s]));
+function dc(d){
+  if(!d.topics||!d.topics.length)return"#9B9186";
+  const ord=["synchronization","circadian_clock","cell_signaling","mathematical_modeling","ecology_evolution","computational"];
+  for(const t of ord)if(d.topics.includes(t))return TM[t].color;
+  return TM[d.topics[0]].color;
+}
+
+// ── LAYOUT ──
+const HPOS={
+  1:{S1:{fx:.50,fy:.50}},
+  2:{S2:{fx:.26,fy:.37},S3:{fx:.73,fy:.37},F1:{fx:.50,fy:.74}},
+  3:{S4:{fx:.34,fy:.48},F2:{fx:.73,fy:.48}},
+  4:{S5:{fx:.50,fy:.50}},
+  all:{S1:{fx:.12,fy:.50},S2:{fx:.33,fy:.27},S3:{fx:.33,fy:.73},F1:{fx:.52,fy:.50},S4:{fx:.70,fy:.27},F2:{fx:.74,fy:.73},S5:{fx:.90,fy:.50}},
+};
+
+function computeLayout(day){
+  const W=container.clientWidth,H=container.clientHeight;
+  const hpos=HPOS[day];const nodes=[];
+  const talkR=day==="all"?55:Math.min(W,H)*0.19;
+  const flashR=day==="all"?38:Math.min(W,H)*0.28;
+  Object.keys(hpos).forEach(sk=>{
+    const meta=SM[sk];const hp=hpos[sk];
+    const cx=hp.fx*W,cy=hp.fy*H;
+    nodes.push({id:"__"+sk+"__",type:"hub",sess:sk,day:meta.day,x:cx,y:cy,meta});
+    const talks=SP.filter(s=>s.sess===sk&&s.type==="talk");
+    const flash=SP.filter(s=>s.sess===sk&&s.type==="flash");
+    talks.forEach((sp,i)=>{
+      const a=(2*Math.PI/talks.length)*i-Math.PI/2;
+      nodes.push({...sp,x:cx+talkR*Math.cos(a),y:cy+talkR*Math.sin(a)});
+    });
+    flash.forEach((sp,i)=>{
+      const a=(2*Math.PI/flash.length)*i-Math.PI/2;
+      nodes.push({...sp,x:cx+flashR*Math.cos(a),y:cy+flashR*Math.sin(a)});
+    });
+  });
+  return nodes;
+}
+
+function getCrossEdges(nodeList){
+  const edges=[];
+  const talks=nodeList.filter(n=>n.type==="talk");
+  for(let i=0;i<talks.length;i++)for(let j=i+1;j<talks.length;j++){
+    const a=talks[i],b=talks[j];
+    if(a.sess===b.sess)continue;
+    const sh=a.topics.filter(t=>b.topics.includes(t));
+    if(sh.length)edges.push({a,b,topic:sh[0],topics:sh});
+  }
+  return edges;
+}
+
+// ── D3 ──
+const container=document.getElementById("canvas");
+const svgS=d3.select(container).append("svg").attr("width","100%").attr("height","100%");
+const zB=d3.zoom().scaleExtent([0.1,4]).on("zoom",e=>root.attr("transform",e.transform));
+svgS.call(zB);
+const root=svgS.append("g");
+const arcL=root.append("g");
+const hubL=root.append("g");
+const edgeL=root.append("g");
+const nodeL=root.append("g");
+const zoneL=root.append("g");
+
+let curDay=1,curTopic="all",showFlash=true,selId=null,curNodes=[];
+
+function render(day,anim=true){
+  curDay=day;selId=null;curNodes=computeLayout(day);
+  const W=container.clientWidth,H=container.clientHeight;
+  const hubs=curNodes.filter(n=>n.type==="hub");
+  const spks=curNodes.filter(n=>n.type!=="hub");
+  const T=anim?d3.transition().duration(650).ease(d3.easeCubicOut):null;
+
+  // Zone labels for "all" view
+  zoneL.selectAll("*").remove();
+  if(day==="all"){
+    [1,2,3,4].forEach(d=>{
+      const dh=hubs.filter(h=>h.meta.day===d);
+      if(!dh.length)return;
+      const cx=d3.mean(dh,h=>h.x),cy=d3.mean(dh,h=>h.y);
+      const fills=["#F5E6C0","#D0E8C0","#C0D0E8","#E0C0E8"][d-1];
+      const cols=["#8B6914","#3A6B1A","#1A3A6B","#6B1A8B"][d-1];
+      zoneL.append("ellipse").attr("cx",cx).attr("cy",cy).attr("rx",105).attr("ry",70).attr("fill",fills).attr("fill-opacity",.16);
+      zoneL.append("text").attr("x",cx).attr("y",cy-78).attr("text-anchor","middle")
+        .attr("font-size","10px").attr("font-weight","700").attr("fill",cols)
+        .attr("font-family","'DM Mono',monospace").text(["Tue 24","Wed 25","Thu 26","Fri 27"][d-1]);
+    });
+  }
+
+  // Hub spokes
+  edgeL.selectAll("line").remove();
+  hubs.forEach(hub=>{
+    spks.filter(s=>s.sess===hub.sess).forEach(sp=>{
+      edgeL.append("line")
+        .attr("x1",hub.x).attr("y1",hub.y).attr("x2",sp.x).attr("y2",sp.y)
+        .attr("stroke","#1C1916")
+        .attr("stroke-opacity",sp.type==="flash"?0.06:0.11)
+        .attr("stroke-width",sp.type==="flash"?0.6:1);
+    });
+  });
+
+  arcL.selectAll("*").remove();
+
+  // Session hubs
+  const hubSel=hubL.selectAll(".hub-nd").data(hubs,d=>d.id);
+  hubSel.exit().transition().duration(250).attr("opacity",0).remove();
+  const hE=hubSel.enter().append("g").attr("class","hub-nd")
+    .attr("transform",d=>`translate(${d.x},${d.y})`).attr("opacity",0)
+    .style("cursor","pointer")
+    .on("click",(e,d)=>{e.stopPropagation();clickHub(d);});
+  hE.append("circle").attr("r",day==="all"?14:22).attr("fill","none")
+    .attr("stroke",d=>d.meta.color).attr("stroke-width",2)
+    .attr("stroke-dasharray","5 3").attr("opacity",.55);
+  hE.append("circle").attr("r",day==="all"?7:11)
+    .attr("fill",d=>d.meta.color).attr("fill-opacity",.85);
+  hE.append("text").attr("dy",day==="all"?-11:-17).attr("text-anchor","middle")
+    .attr("font-size",day==="all"?"8px":"9px").attr("font-weight","700")
+    .attr("fill",d=>d.meta.color).attr("font-family","'Syne',sans-serif")
+    .text(d=>d.meta.label);
+  const hM=hE.merge(hubSel);
+  (T?hM.transition(T):hM).attr("transform",d=>`translate(${d.x},${d.y})`).attr("opacity",1);
+
+  // Speaker nodes
+  const spSel=nodeL.selectAll(".sp-nd").data(spks,d=>d.id);
+  spSel.exit().transition().duration(250).attr("opacity",0).remove();
+  const sE=spSel.enter().append("g").attr("class","sp-nd")
+    .attr("transform",d=>`translate(${d.x},${d.y})`).attr("opacity",0)
+    .style("cursor","pointer")
+    .on("click",(e,d)=>{e.stopPropagation();clickSp(d);})
+    .on("mouseenter",(e,d)=>showTip(e,d))
+    .on("mousemove",e=>moveTip(e))
+    .on("mouseleave",hideTip);
+
+  const talkR=day==="all"?9:d=>d.inv?17:12;
+  sE.filter(d=>d.type==="talk").append("circle")
+    .attr("r",typeof talkR==="function"?talkR:talkR)
+    .attr("fill",d=>dc(d)).attr("stroke","var(--bg)").attr("stroke-width",2.5);
+  const flashSz=day==="all"?5:7;
+  sE.filter(d=>d.type==="flash").append("polygon")
+    .attr("points",d=>{const s=flashSz;return`-${s},0 0,-${s} ${s},0 0,${s}`;})
+    .attr("fill",d=>dc(d)||"#9B9186").attr("fill-opacity",.75)
+    .attr("stroke","var(--bg)").attr("stroke-width",1.5);
+
+  if(day!=="all"){
+    sE.filter(d=>d.type==="talk").append("text")
+      .attr("dy",d=>d.inv?28:22).attr("text-anchor","middle")
+      .attr("font-size","10px").attr("font-weight","700")
+      .attr("fill","var(--text)").attr("fill-opacity",.7)
+      .text(d=>d.id.split(" ").pop());
+  }
+
+  const sM=sE.merge(spSel);
+  (T?sM.transition(T):sM).attr("transform",d=>`translate(${d.x},${d.y})`).attr("opacity",1);
+
+  document.getElementById("statn").textContent=
+    day==="all"?SP.filter(s=>s.type==="talk").length:SP.filter(s=>s.day===day&&s.type==="talk").length;
+
+  applyOp();
+  setTimeout(fitView,60);
+}
+
+function drawArcs(sp){
+  arcL.selectAll("*").remove();
+  getCrossEdges(curNodes).filter(e=>e.a.id===sp.id||e.b.id===sp.id).forEach(e=>{
+    const col=TM[e.topic]?TM[e.topic].color:"#888";
+    const mx=(e.a.x+e.b.x)/2+(e.b.y-e.a.y)*0.28;
+    const my=(e.a.y+e.b.y)/2-(e.b.x-e.a.x)*0.28;
+    arcL.append("path")
+      .attr("d",`M${e.a.x},${e.a.y} Q${mx},${my} ${e.b.x},${e.b.y}`)
+      .attr("class","cross-arc").attr("stroke",col)
+      .attr("stroke-width",2.5).attr("stroke-opacity",.8).attr("stroke-dasharray","8 5");
+  });
+}
+
+svgS.on("click",()=>{selId=null;arcL.selectAll("*").remove();applyOp();hideSBs();});
+
+function clickSp(d){
+  selId=d.id;drawArcs(d);applyOp();showSpSB(d);openMob(buildSpH(d));
+}
+function clickHub(d){
+  selId=d.id;arcL.selectAll("*").remove();applyOp();showSessSB(d);openMob(buildSessH(d));
+}
+function goSp(id){
+  const sp=spMap.get(id);if(!sp)return;
+  if(sp.day!==curDay){
+    setDay(sp.day,document.querySelector(`[data-day="${sp.day}"]`));
+    setTimeout(()=>{const nd=curNodes.find(n=>n.id===id);if(nd)clickSp(nd);},750);
+  } else {const nd=curNodes.find(n=>n.id===id);if(nd)clickSp(nd);}
+}
+
+function applyOp(){
+  let cs=null;
+  if(selId){
+    cs=new Set([selId]);
+    getCrossEdges(curNodes).forEach(e=>{
+      if(e.a.id===selId)cs.add(e.b.id);
+      if(e.b.id===selId)cs.add(e.a.id);
+    });
+    const sel=curNodes.find(n=>n.id===selId);
+    if(sel)curNodes.filter(n=>n.sess===sel.sess).forEach(n=>cs.add(n.id));
+    if(sel)cs.add("__"+sel.sess+"__");
+  }
+  nodeL.selectAll(".sp-nd").attr("opacity",d=>{
+    if(!showFlash&&d.type==="flash")return 0.03;
+    if(curTopic!=="all"&&!d.topics.includes(curTopic))return 0.06;
+    if(cs&&!cs.has(d.id))return 0.07;
+    return 1;
+  });
+  hubL.selectAll(".hub-nd").attr("opacity",d=>cs&&!cs.has(d.id)?0.12:1);
+}
+
+function buildSpH(d){
+  const conns=getCrossEdges(curNodes).filter(e=>e.a.id===d.id||e.b.id===d.id)
+    .map(e=>({sp:e.a.id===d.id?e.b:e.a,topic:e.topic}));
+  const cH=conns.length?conns.map(c=>`<div class="ci" onclick="goSp('${c.sp.id}')"><span class="cdot" style="background:${dc(c.sp)}"></span><span class="cn">${c.sp.id}</span><span class="cr">${TM[c.topic]?TM[c.topic].label:"shared"} · Day ${c.sp.day}</span></div>`).join("")
+    :`<div style="font-size:11px;color:var(--text3);padding:8px 0">No cross-session connections in this view</div>`;
+  return`<div style="margin-bottom:12px"><div style="font-size:9px;font-family:'DM Mono',monospace;color:var(--text3);text-transform:uppercase;letter-spacing:.12em;margin-bottom:4px">${d.type==="flash"?"Flash / Poster":"Speaker"}</div>
+    <div style="font-size:19px;font-weight:700;line-height:1.1;margin-bottom:3px">${d.id}</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:2px">${d.inst!=="—"?d.inst:""}</div>
+    <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text3)">${d.cty!=="—"?"📍 "+d.cty:""}</div></div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">
+      <span class="mt day">Day ${d.day}</span><span class="mt sess">${SM[d.sess].label}</span>
+      <span class="mt">${d.type==="talk"?(d.inv?"Invited":"Contributed"):"Flash/Poster"}</span>
+      ${d.virt?'<span class="mt virt">Virtual</span>':""}
+    </div>
+    ${d.title?`<div class="lbl">Talk title</div><div style="font-family:'Lora',serif;font-style:italic;font-size:14px;line-height:1.6;margin-bottom:13px">${d.title}</div>`:""}
+    ${SUMS[d.id]?`<div class="lbl">Scientific context</div><div style="font-size:12px;line-height:1.7;color:var(--text2);margin-bottom:13px;border-left:2px solid var(--border);padding-left:10px">${SUMS[d.id]}</div>`:""}
+    <div class="lbl">Research areas</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:13px">${d.topics.length?d.topics.map(t=>`<span class="tpill" style="background:${TM[t].color}">${TM[t].label}</span>`).join(""):`<span style="font-size:11px;color:var(--text3)">Not classified</span>`}</div>
+    <div class="lbl">Cross-session connections</div>${cH}`;
+}
+function showSpSB(d){
+  document.getElementById("sbdef").style.display="none";
+  document.getElementById("sbsess").style.display="none";
+  document.getElementById("sbsp").style.display="block";
+  document.getElementById("sbey").textContent=d.type==="flash"?"Flash / Poster":"Speaker Profile";
+  document.getElementById("sbn").textContent=d.id;
+  document.getElementById("sbi").textContent=d.inst!=="—"?d.inst:"";
+  document.getElementById("sbc").textContent=d.cty!=="—"?"📍 "+d.cty:"";
+  document.getElementById("sbmeta").innerHTML=`<span class="mt day">Day ${d.day}</span><span class="mt sess">${SM[d.sess].label}</span><span class="mt">${d.type==="talk"?(d.inv?"Invited":"Contributed"):"Flash/Poster"}</span>${d.virt?'<span class="mt virt">Virtual</span>':""}`;
+  document.getElementById("sbtlk").textContent=d.title||"";
+  document.getElementById("sbtlk").style.display=d.title?"block":"none";
+  document.getElementById("sbsum").textContent=SUMS[d.id]||"";
+  document.getElementById("sbsum").style.display=SUMS[d.id]?"block":"none";
+  document.getElementById("lblsum").style.display=SUMS[d.id]?"block":"none";
+  document.getElementById("sbtops").innerHTML=d.topics.length?d.topics.map(t=>`<span class="tpill" style="background:${TM[t].color}">${TM[t].label}</span>`).join(""):`<span style="font-size:11px;color:var(--text3)">Not classified</span>`;
+  const conns=getCrossEdges(curNodes).filter(e=>e.a.id===d.id||e.b.id===d.id).map(e=>({sp:e.a.id===d.id?e.b:e.a,topic:e.topic}));
+  document.getElementById("sbclist").innerHTML=conns.length?conns.map(c=>`<div class="ci" onclick="goSp('${c.sp.id}')"><span class="cdot" style="background:${dc(c.sp)}"></span><span class="cn">${c.sp.id}</span><span class="cr">${TM[c.topic]?TM[c.topic].label:"shared"} · Day ${c.sp.day}</span></div>`).join("")
+    :`<div style="font-size:11px;color:var(--text3);padding:8px 0">No cross-session connections in this view</div>`;
+}
+
+function buildSessH(hub){
+  const meta=hub.meta;const sps=SP.filter(s=>s.sess===hub.sess);
+  return`<div><div style="font-size:18px;font-weight:700;margin-bottom:4px">${meta.long}</div>
+    <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);margin-bottom:3px">${meta.time} · Day ${meta.day}</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px">Chair: ${meta.chair}</div>
+    <div class="lbl" style="margin-bottom:9px">Speakers</div>
+    ${sps.map(s=>`<div class="ssp" onclick="goSp('${s.id}')"><span class="sspdot" style="background:${dc(s)}"></span><span class="sspn">${s.id}</span><span class="sspi">${s.inst!=="—"?s.inst:""}</span></div>`).join("")}</div>`;
+}
+function showSessSB(hub){
+  const meta=hub.meta;
+  document.getElementById("sbdef").style.display="none";
+  document.getElementById("sbsp").style.display="none";
+  document.getElementById("sbsess").style.display="block";
+  document.getElementById("sbsn").textContent=meta.long;
+  document.getElementById("sbsm").textContent=`${meta.time} · Day ${meta.day}`;
+  document.getElementById("sbsc").textContent="Chair: "+meta.chair;
+  document.getElementById("sbslist").innerHTML=SP.filter(s=>s.sess===hub.sess).map(s=>`<div class="ssp" onclick="goSp('${s.id}')"><span class="sspdot" style="background:${dc(s)}"></span><span class="sspn">${s.id}</span><span class="sspi">${s.inst!=="—"?s.inst:""}</span></div>`).join("");
+}
+function hideSBs(){
+  document.getElementById("sbdef").style.display="block";
+  document.getElementById("sbsp").style.display="none";
+  document.getElementById("sbsess").style.display="none";
+  closeMob();
+}
+
+function openMob(html){
+  if(window.innerWidth>768)return;
+  document.getElementById("mobin").innerHTML=html;
+  document.getElementById("mobdraw").classList.add("open");
+  document.getElementById("mobov").style.display="block";
+}
+function closeMob(){
+  document.getElementById("mobdraw").classList.remove("open");
+  document.getElementById("mobov").style.display="none";
+}
+
+const tip=document.getElementById("tip");
+function showTip(e,d){
+  tip.querySelector(".tt").textContent=d.id;
+  tip.querySelector(".ts").textContent=(d.inst&&d.inst!=="—"?d.inst+" · ":"")+SM[d.sess].label;
+  tip.style.opacity=1;moveTip(e);
+}
+function moveTip(e){tip.style.left=(e.clientX+14)+"px";tip.style.top=(e.clientY-10)+"px";}
+function hideTip(){tip.style.opacity=0;}
+
+function filterTopic(topic,el){
+  document.querySelectorAll(".chip:not(.chip-flash)").forEach(c=>c.classList.remove("active"));
+  el.classList.add("active");curTopic=topic;applyOp();
+}
+function toggleFlash(el){showFlash=!showFlash;el.classList.toggle("active",showFlash);applyOp();}
+function setDay(day,el,cb){
+  document.querySelectorAll(".daytab").forEach(t=>t.classList.remove("active"));
+  if(el)el.classList.add("active");
+  curDay=day;selId=null;arcL.selectAll("*").remove();hideSBs();
+  render(day);if(cb)setTimeout(cb,700);
+}
+
+function fitView(){
+  if(!curNodes.length)return;
+  const W=container.clientWidth,H=container.clientHeight;
+  const vis=curNodes.filter(n=>showFlash||n.type!=="flash");
+  if(!vis.length)return;
+  const pad=55;
+  const x0=d3.min(vis,d=>d.x)-pad,x1=d3.max(vis,d=>d.x)+pad;
+  const y0=d3.min(vis,d=>d.y)-pad,y1=d3.max(vis,d=>d.y)+pad;
+  const s=Math.min(W/(x1-x0),H/(y1-y0),3);
+  svgS.transition().duration(500).call(zB.transform,d3.zoomIdentity.translate(W/2-s*(x0+x1)/2,H/2-s*(y0+y1)/2).scale(s));
+}
+
+// ── TIMELINE ──
+const DW={1:2.5,2:4.5,3:4.5,4:2.5};
+const TW2=Object.values(DW).reduce((a,b)=>a+b,0);
+const TLS=[
+  {k:"S1",day:1,s:.3,e:1.0,label:"Session 1"},{k:"S2",day:2,s:.0,e:.40,label:"Session 2"},
+  {k:"S3",day:2,s:.45,e:.85,label:"Session 3"},{k:"F1",day:2,s:.88,e:1.0,label:"Flash I"},
+  {k:"S4",day:3,s:.0,e:.42,label:"Session 4"},{k:"F2",day:3,s:.85,e:1.0,label:"Flash II"},
+  {k:"S5",day:4,s:.0,e:.85,label:"Session 5"},
+];
+function buildTL(){
+  const lr=document.getElementById("tll"),sv=d3.select("#tlsvg");
+  const svgW=document.getElementById("tlsvg").parentElement.clientWidth-44;
+  const tH=document.getElementById("tltrack").clientHeight||44;
+  lr.innerHTML="";
+  [1,2,3,4].forEach(d=>{
+    const pct=DW[d]/TW2*100;
+    const div=document.createElement("div");
+    div.className="tld";div.style.width=pct+"%";
+    div.textContent=["Tue 24","Wed 25","Thu 26","Fri 27"][d-1];
+    lr.appendChild(div);
+  });
+  sv.attr("viewBox",`0 0 ${svgW} ${tH}`).attr("preserveAspectRatio","none");
+  let xc=0;
+  [1,2,3,4].forEach(d=>{
+    const dw=DW[d]/TW2*svgW;
+    sv.append("rect").attr("x",xc).attr("y",0).attr("width",dw).attr("height",tH)
+      .attr("fill",["#F5E6C0","#D0E8C0","#C0D0E8","#E0C0E8"][d-1]).attr("fill-opacity",.28)
+      .style("cursor","pointer")
+      .on("click",()=>setDay(d,document.querySelector(`[data-day="${d}"]`)));
+    xc+=dw;
+  });
+  TLS.forEach(sess=>{
+    const off=[0,1,2,3].slice(0,sess.day-1).reduce((a,d2)=>a+DW[d2+1],0)/TW2*svgW;
+    const dw=DW[sess.day]/TW2*svgW;
+    const x=off+sess.s*dw,w=(sess.e-sess.s)*dw;
+    const col=SM[sess.k].color;
+    const sg=sv.append("g").style("cursor","pointer").attr("class","tlsess").attr("data-key",sess.k)
+      .on("click",()=>{setDay(SM[sess.k].day,document.querySelector(`[data-day="${SM[sess.k].day}"]`));setTimeout(()=>hlSess(sess.k),700);});
+    sg.append("rect").attr("x",x).attr("y",6).attr("width",w).attr("height",tH-12)
+      .attr("rx",3).attr("fill",col).attr("fill-opacity",.75).attr("class","tlr");
+    if(w>28)sg.append("text").attr("x",x+w/2).attr("y",tH/2).attr("text-anchor","middle")
+      .attr("dominant-baseline","middle").attr("font-size","8px")
+      .attr("font-family","'DM Mono',monospace").attr("font-weight","700")
+      .attr("fill","#fff").attr("fill-opacity",.9).text(sess.label);
+  });
+  sv.append("line").attr("id","tlh").attr("x1",0).attr("x2",0).attr("y1",0).attr("y2",tH)
+    .attr("stroke","#1C1916").attr("stroke-width",2).attr("stroke-opacity",.5).style("display","none");
+}
+function hlSess(k){
+  d3.selectAll(".tlr").attr("fill-opacity",.4);
+  const el=document.querySelector(`.tlsess[data-key="${k}"] .tlr`);
+  if(el)el.setAttribute("fill-opacity","1");
+}
+function clearTLH(){d3.selectAll(".tlr").attr("fill-opacity",.75);}
+function moveTLH(k){
+  const sess=TLS.find(s=>s.k===k);if(!sess)return;
+  const svgW=document.getElementById("tlsvg").getBoundingClientRect().width;
+  const off=[0,1,2,3].slice(0,sess.day-1).reduce((a,d2)=>a+DW[d2+1],0)/TW2*svgW;
+  const dw=DW[sess.day]/TW2*svgW;
+  const x=off+sess.s*dw+(sess.e-sess.s)*dw/2;
+  d3.select("#tlh").style("display","block").transition().duration(500).attr("x1",x).attr("x2",x);
+}
+
+const PLAY_ORDER=["S1","S2","S3","F1","S4","F2","S5"];
+let playing=false,pstep=0,ptimer=null;
+function togglePlay(){
+  playing=!playing;
+  document.getElementById("pico").style.display=playing?"none":"block";
+  document.getElementById("paico").style.display=playing?"block":"none";
+  if(playing){doStep();ptimer=setInterval(doStep,2900);}
+  else{clearInterval(ptimer);ptimer=null;clearTLH();d3.select("#tlh").style("display","none");}
+}
+function doStep(){
+  const k=PLAY_ORDER[pstep%PLAY_ORDER.length];
+  const day=SM[k].day;moveTLH(k);hlSess(k);
+  if(day!==curDay)setDay(day,document.querySelector(`[data-day="${day}"]`));
+  pstep++;
+}
+
+window.addEventListener("resize",()=>{render(curDay,false);buildTL();});
+buildTL();
+render(1,false);
+setTimeout(()=>document.getElementById("hint").style.opacity=0,6000);
+</script>
+</body>
+</html>
